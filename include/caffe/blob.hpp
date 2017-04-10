@@ -27,13 +27,13 @@ class Blob {
        : data_(), diff_(), count_(0), capacity_(0) {}
 
   /// @brief Deprecated; use <code>Blob(const vector<int>& shape)</code>.
-  explicit Blob(const int num, const int channels, const int height,
-      const int width);
+  explicit Blob(const int channels, const int height,
+      const int width, const int num);
   explicit Blob(const vector<int>& shape);
 
   /// @brief Deprecated; use <code>Reshape(const vector<int>& shape)</code>.
-  void Reshape(const int num, const int channels, const int height,
-      const int width);
+  void Reshape(const int channels, const int height,
+      const int width, const int num);
   /**
    * @brief Change the dimensions of the blob, allocating new memory if
    *        necessary.
@@ -129,13 +129,13 @@ class Blob {
   }
 
   /// @brief Deprecated legacy shape accessor num: use shape(0) instead.
-  inline int num() const { return LegacyShape(0); }
+  inline int num() const { return LegacyShape(3); }
   /// @brief Deprecated legacy shape accessor channels: use shape(1) instead.
-  inline int channels() const { return LegacyShape(1); }
+  inline int channels() const { return LegacyShape(0); }
   /// @brief Deprecated legacy shape accessor height: use shape(2) instead.
-  inline int height() const { return LegacyShape(2); }
+  inline int height() const { return LegacyShape(1); }
   /// @brief Deprecated legacy shape accessor width: use shape(3) instead.
-  inline int width() const { return LegacyShape(3); }
+  inline int width() const { return LegacyShape(2); }
   inline int LegacyShape(int index) const {
     CHECK_LE(num_axes(), 4)
         << "Cannot use legacy accessors on Blobs with > 4 axes.";
@@ -150,8 +150,8 @@ class Blob {
     return shape(index);
   }
 
-  inline int offset(const int n, const int c = 0, const int h = 0,
-      const int w = 0) const {
+  inline int offset(const int c, const int h = 0,
+      const int w = 0, const int n = 0) const {
     CHECK_GE(n, 0);
     CHECK_LE(n, num());
     CHECK_GE(channels(), 0);
@@ -160,7 +160,7 @@ class Blob {
     CHECK_LE(h, height());
     CHECK_GE(width(), 0);
     CHECK_LE(w, width());
-    return ((n * channels() + c) * height() + h) * width() + w;
+    return ( (c * height() + h) * width() + w ) * num() + n;
   }
 
   inline int offset(const vector<int>& indices) const {
@@ -188,14 +188,14 @@ class Blob {
   void CopyFrom(const Blob<Dtype>& source, bool copy_diff = false,
       bool reshape = false);
 
-  inline Dtype data_at(const int n, const int c, const int h,
-      const int w) const {
-    return cpu_data()[offset(n, c, h, w)];
+  inline Dtype data_at(const int c, const int h,
+      const int w, const int n) const {
+    return cpu_data()[offset(c, h, w, n)];
   }
 
-  inline Dtype diff_at(const int n, const int c, const int h,
-      const int w) const {
-    return cpu_diff()[offset(n, c, h, w)];
+  inline Dtype diff_at(const int c, const int h,
+      const int w, const int n) const {
+    return cpu_diff()[offset(c, h, w, n)];
   }
 
   inline Dtype data_at(const vector<int>& index) const {

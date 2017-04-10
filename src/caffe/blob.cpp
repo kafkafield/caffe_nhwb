@@ -9,13 +9,13 @@
 namespace caffe {
 
 template <typename Dtype>
-void Blob<Dtype>::Reshape(const int num, const int channels, const int height,
-    const int width) {
+void Blob<Dtype>::Reshape(const int channels, const int height,
+    const int width, const int num) {
   vector<int> shape(4);
-  shape[0] = num;
-  shape[1] = channels;
-  shape[2] = height;
-  shape[3] = width;
+  shape[0] = channels;
+  shape[1] = height;
+  shape[2] = width;
+  shape[3] = num;
   Reshape(shape);
 }
 
@@ -60,11 +60,11 @@ void Blob<Dtype>::ReshapeLike(const Blob<Dtype>& other) {
 }
 
 template <typename Dtype>
-Blob<Dtype>::Blob(const int num, const int channels, const int height,
-    const int width)
+Blob<Dtype>::Blob( const int channels, const int height,
+    const int width, const int num)
   // capacity_ must be initialized before calling Reshape
   : capacity_(0) {
-  Reshape(num, channels, height, width);
+  Reshape(channels, height, width, num);
 }
 
 template <typename Dtype>
@@ -411,16 +411,16 @@ bool Blob<Dtype>::ShapeEquals(const BlobProto& other) {
   if (other.has_num() || other.has_channels() ||
       other.has_height() || other.has_width()) {
     // Using deprecated 4D Blob dimensions --
-    // shape is (num, channels, height, width).
+    // shape is (channels, height, width, num).
     // Note: we do not use the normal Blob::num(), Blob::channels(), etc.
     // methods as these index from the beginning of the blob shape, where legacy
     // parameter blobs were indexed from the end of the blob shape (e.g., bias
     // Blob shape (1 x 1 x 1 x N), IP layer weight Blob shape (1 x 1 x M x N)).
     return shape_.size() <= 4 &&
-           LegacyShape(-4) == other.num() &&
-           LegacyShape(-3) == other.channels() &&
-           LegacyShape(-2) == other.height() &&
-           LegacyShape(-1) == other.width();
+           LegacyShape(-1) == other.num() &&
+           LegacyShape(-4) == other.channels() &&
+           LegacyShape(-3) == other.height() &&
+           LegacyShape(-2) == other.width();
   }
   vector<int> other_shape(other.shape().dim_size());
   for (int i = 0; i < other.shape().dim_size(); ++i) {
@@ -469,12 +469,12 @@ void Blob<Dtype>::FromProto(const BlobProto& proto, bool reshape) {
     if (proto.has_num() || proto.has_channels() ||
         proto.has_height() || proto.has_width()) {
       // Using deprecated 4D Blob dimensions --
-      // shape is (num, channels, height, width).
+      // shape is (channels, height, width, num).
       shape.resize(4);
-      shape[0] = proto.num();
-      shape[1] = proto.channels();
-      shape[2] = proto.height();
-      shape[3] = proto.width();
+      shape[0] = proto.channels();
+      shape[1] = proto.height();
+      shape[2] = proto.width();
+      shape[3] = proto.num();
     } else {
       shape.resize(proto.shape().dim_size());
       for (int i = 0; i < proto.shape().dim_size(); ++i) {

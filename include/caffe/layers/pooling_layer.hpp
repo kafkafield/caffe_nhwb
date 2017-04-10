@@ -48,6 +48,7 @@ class PoolingLayer : public Layer<Dtype> {
   int stride_h_, stride_w_;
   int pad_h_, pad_w_;
   int channels_;
+  int num_;
   int height_, width_;
   int pooled_height_, pooled_width_;
   bool global_pooling_;

@@ -15,7 +15,7 @@ class BlobSimpleTest : public ::testing::Test {
  protected:
   BlobSimpleTest()
       : blob_(new Blob<Dtype>()),
-        blob_preshaped_(new Blob<Dtype>(2, 3, 4, 5)) {}
+        blob_preshaped_(new Blob<Dtype>(3, 4, 5, 2)) {}
   virtual ~BlobSimpleTest() { delete blob_; delete blob_preshaped_; }
   Blob<Dtype>* const blob_;
   Blob<Dtype>* const blob_preshaped_;
@@ -43,7 +43,7 @@ TYPED_TEST(BlobSimpleTest, TestPointersCPUGPU) {
 }
 
 TYPED_TEST(BlobSimpleTest, TestReshape) {
-  this->blob_->Reshape(2, 3, 4, 5);
+  this->blob_->Reshape(3, 4, 5, 2);
   EXPECT_EQ(this->blob_->num(), 2);
   EXPECT_EQ(this->blob_->channels(), 3);
   EXPECT_EQ(this->blob_->height(), 4);
@@ -69,24 +69,24 @@ TYPED_TEST(BlobSimpleTest, TestLegacyBlobProtoShapeEquals) {
   this->blob_->Reshape(shape);
 
   // (3 x 2) blob == (1 x 1 x 3 x 2) legacy blob
-  blob_proto.set_num(1);
   blob_proto.set_channels(1);
-  blob_proto.set_height(3);
-  blob_proto.set_width(2);
+  blob_proto.set_height(1);
+  blob_proto.set_width(3);
+  blob_proto.set_num(2);
   EXPECT_TRUE(this->blob_->ShapeEquals(blob_proto));
 
   // (3 x 2) blob != (0 x 1 x 3 x 2) legacy blob
-  blob_proto.set_num(0);
-  blob_proto.set_channels(1);
-  blob_proto.set_height(3);
-  blob_proto.set_width(2);
+  blob_proto.set_channels(0);
+  blob_proto.set_height(1);
+  blob_proto.set_width(3);
+  blob_proto.set_num(2);
   EXPECT_FALSE(this->blob_->ShapeEquals(blob_proto));
 
   // (3 x 2) blob != (3 x 1 x 3 x 2) legacy blob
-  blob_proto.set_num(3);
-  blob_proto.set_channels(1);
-  blob_proto.set_height(3);
-  blob_proto.set_width(2);
+  blob_proto.set_channels(3);
+  blob_proto.set_height(1);
+  blob_proto.set_width(3);
+  blob_proto.set_num(2);
   EXPECT_FALSE(this->blob_->ShapeEquals(blob_proto));
 
   // Reshape to (1 x 3 x 2).
@@ -94,10 +94,10 @@ TYPED_TEST(BlobSimpleTest, TestLegacyBlobProtoShapeEquals) {
   this->blob_->Reshape(shape);
 
   // (1 x 3 x 2) blob == (1 x 1 x 3 x 2) legacy blob
-  blob_proto.set_num(1);
   blob_proto.set_channels(1);
-  blob_proto.set_height(3);
-  blob_proto.set_width(2);
+  blob_proto.set_height(1);
+  blob_proto.set_width(3);
+  blob_proto.set_num(2);
   EXPECT_TRUE(this->blob_->ShapeEquals(blob_proto));
 
   // Reshape to (2 x 3 x 2).
@@ -105,10 +105,10 @@ TYPED_TEST(BlobSimpleTest, TestLegacyBlobProtoShapeEquals) {
   this->blob_->Reshape(shape);
 
   // (2 x 3 x 2) blob != (1 x 1 x 3 x 2) legacy blob
-  blob_proto.set_num(1);
   blob_proto.set_channels(1);
-  blob_proto.set_height(3);
-  blob_proto.set_width(2);
+  blob_proto.set_height(1);
+  blob_proto.set_width(3);
+  blob_proto.set_num(2);
   EXPECT_FALSE(this->blob_->ShapeEquals(blob_proto));
 }
 
@@ -117,7 +117,7 @@ class BlobMathTest : public MultiDeviceTest<TypeParam> {
   typedef typename TypeParam::Dtype Dtype;
  protected:
   BlobMathTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new Blob<Dtype>(3, 4, 5, 2)),
         epsilon_(1e-6) {}
 
   virtual ~BlobMathTest() { delete blob_; }
