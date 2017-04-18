@@ -33,8 +33,8 @@ __global__ void MaxPoolForward(const int nthreads,
     for (int h = hstart; h < hend; ++h) {
       for (int w = wstart; w < wend; ++w) {
         if (bottom_data[((c * height + h) * width + w) * num + n] > maxval) {
-          maxidx = (h * width + w) * num + n;
-          maxval = bottom_data[maxidx+c*height*width*num]; //***k it
+          maxidx = ((c * height + h) * width + w) * num + n;
+          maxval = bottom_data[maxidx];
         }
       }
     }
@@ -100,7 +100,7 @@ __global__ void StoPoolForwardTrain(const int nthreads,
     // First pass: get sum
     for (int h = hstart; h < hend; ++h) {
       for (int w = wstart; w < wend; ++w) {
-        cumsum += bottom_data[((c * height + h) * width + w) * num + n];
+        cumsum += bottom_slice[h * width + w];
       }
     }
     const float thres = rand_idx[index] * cumsum;
@@ -144,7 +144,7 @@ __global__ void StoPoolForwardTest(const int nthreads,
     for (int h = hstart; h < hend; ++h) {
       for (int w = wstart; w < wend; ++w) {
         cumsum += bottom_data[((c * height + h) * width + w) * num + n];
-        cumvalues += bottom_data[((c * height + h) * width + w) * num + n] * 
+        cumvalues +=bottom_data[((c * height + h) * width + w) * num + n] * 
 			bottom_data[((c * height + h) * width + w) * num + n];
       }
     }
@@ -222,40 +222,39 @@ __global__ void MaxPoolBackward(const int nthreads, const Dtype* const top_diff,
   CUDA_KERNEL_LOOP(index, nthreads) {
     // find out the local index
     // find out the local offset
-	const int n = index % num;
-	const int index2 = index / num;
-    const int w = index2 % width;
-    const int h = (index2 / width) % height;
-    const int c = (index2 / width / height) % channels;
-	const int phstart =
+    const int w = index % width;
+    const int h = (index / width) % height;
+    const int c = (index / width / height) % channels;
+    const int n = index / width / height / channels;
+    const int phstart =
          (h + pad_h < kernel_h) ? 0 : (h + pad_h - kernel_h) / stride_h + 1;
     const int phend = min((h + pad_h) / stride_h + 1, pooled_height);
     const int pwstart =
          (w + pad_w < kernel_w) ? 0 : (w + pad_w - kernel_w) / stride_w + 1;
     const int pwend = min((w + pad_w) / stride_w + 1, pooled_width);
-	Dtype gradient = 0;
+    Dtype gradient = 0;
+    const int offset = (n * channels + c) * pooled_height * pooled_width;
+    const Dtype* const top_diff_slice = top_diff + offset;
     if (mask) {
+      const int* const mask_slice = mask + offset;
       for (int ph = phstart; ph < phend; ++ph) {
         for (int pw = pwstart; pw < pwend; ++pw) {
-		  int index_pooled = ((c * pooled_height + ph) * pooled_width + pw) * num + n;
-          if (mask[index_pooled] == ((h * width + w) * num + n)) {
-            gradient += top_diff[index_pooled];
+          if (mask_slice[ph * pooled_width + pw] == h * width + w) {
+            gradient += top_diff_slice[ph * pooled_width + pw];
           }
         }
       }
     } else {
+      const Dtype* const top_mask_slice = top_mask + offset;
       for (int ph = phstart; ph < phend; ++ph) {
         for (int pw = pwstart; pw < pwend; ++pw) {
-		  int index_pooled = ((c * pooled_height + ph) * pooled_width + pw) * num + n;
-          if (top_mask[index_pooled] == ((h * width + w) * num + n)) {
-            gradient += top_diff[index_pooled];
+          if (top_mask_slice[ph * pooled_width + pw] == h * width + w) {
+            gradient += top_diff_slice[ph * pooled_width + pw];
           }
         }
       }
     }
     bottom_diff[index] = gradient;
-	if (bottom_diff[index] > 0)
-		printf("%d\n", index);
   }
 }
 
@@ -269,16 +268,17 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* const top_diff,
   CUDA_KERNEL_LOOP(index, nthreads) {
     // find out the local index
     // find out the local offset
-	const int n = index % num;
-	const int index2 = index / num;
-    const int w = index2 % width + pad_w;
-    const int h = (index2 / width) % height + pad_h;
-    const int c = (index2 / width / height) % channels;
+    const int w = index % width + pad_w;
+    const int h = (index / width) % height + pad_h;
+    const int c = (index / width / height) % channels;
+    const int n = index / width / height / channels;
     const int phstart = (h < kernel_h) ? 0 : (h - kernel_h) / stride_h + 1;
     const int phend = min(h / stride_h + 1, pooled_height);
     const int pwstart = (w < kernel_w) ? 0 : (w - kernel_w) / stride_w + 1;
     const int pwend = min(w / stride_w + 1, pooled_width);
     Dtype gradient = 0;
+    const Dtype* const top_diff_slice =
+        top_diff + (n * channels + c) * pooled_height * pooled_width;
     for (int ph = phstart; ph < phend; ++ph) {
       for (int pw = pwstart; pw < pwend; ++pw) {
         // figure out the pooling size
@@ -287,7 +287,7 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* const top_diff,
         int hend = min(hstart + kernel_h, height + pad_h);
         int wend = min(wstart + kernel_w, width + pad_w);
         int pool_size = (hend - hstart) * (wend - wstart);
-        gradient += top_diff[(((c * pooled_height) + ph) * pooled_width + pw) * num + n] / pool_size;
+        gradient += top_diff_slice[ph * pooled_width + pw] / pool_size;
       }
     }
     bottom_diff[index] = gradient;
@@ -305,20 +305,23 @@ __global__ void StoPoolBackward(const int nthreads,
   CUDA_KERNEL_LOOP(index, nthreads) {
     // find out the local index
     // find out the local offset
-	const int n = index % num;
-	const int index2 = index / num;
-    const int w = index2 % width;
-    const int h = (index2 / width) % height;
-    const int c = (index2 / width / height) % channels;
+    const int w = index % width;
+    const int h = (index / width) % height;
+    const int c = (index / width / height) % channels;
+    const int n = index / width / height / channels;
     const int phstart = (h < kernel_h) ? 0 : (h - kernel_h) / stride_h + 1;
     const int phend = min(h / stride_h + 1, pooled_height);
     const int pwstart = (w < kernel_w) ? 0 : (w - kernel_w) / stride_w + 1;
     const int pwend = min(w / stride_w + 1, pooled_width);
     Dtype gradient = 0;
+    const Dtype* const rand_idx_slice =
+        rand_idx + (n * channels + c) * pooled_height * pooled_width;
+    const Dtype* const top_diff_slice =
+        top_diff + (n * channels + c) * pooled_height * pooled_width;
     for (int ph = phstart; ph < phend; ++ph) {
       for (int pw = pwstart; pw < pwend; ++pw) {
-        gradient += top_diff[(((c * pooled_height) + ph) * pooled_width + pw) * num + n] *
-            (index == static_cast<int>(rand_idx[(((c * pooled_height) + ph) * pooled_width + pw) * num + n]));
+        gradient += top_diff_slice[ph * pooled_width + pw] *
+            (index == static_cast<int>(rand_idx_slice[ph * pooled_width + pw]));
       }
     }
     bottom_diff[index] = gradient;

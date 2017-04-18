@@ -89,6 +89,11 @@ inline int CAFFE_GET_BLOCKS(const int N) {
   return (N + CAFFE_CUDA_NUM_THREADS - 1) / CAFFE_CUDA_NUM_THREADS;
 }
 
+// CUDA: number of blocks for threads.
+inline int CAFFE_GET_BLOCKS(const int N, const int BLOCK_SIZE) {
+  return (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+}
+
 }  // namespace caffe
 
 #endif  // CPU_ONLY

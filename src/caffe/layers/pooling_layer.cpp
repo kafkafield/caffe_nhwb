@@ -161,7 +161,7 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
             int wend = min(wstart + kernel_w_, width_);
             hstart = max(hstart, 0);
             wstart = max(wstart, 0);
-            const int pool_index = (ph * pooled_width_ + pw) * num_;
+            const int pool_index = (ph * pooled_width_ + pw) * num_ + n;
             for (int h = hstart; h < hend; ++h) {
               for (int w = wstart; w < wend; ++w) {
                 const int index = (h * width_ + w) * num_ + n;
@@ -175,7 +175,7 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
                 } // end if (bottom_data[index] > top_data[pool_index])
               } // end for (int w = wstart; w < wend; ++w) 
             } // end for (int h = hstart; h < hend; ++h)
-          } // end for (int pw = 0; pw < pooled_width_; ++pw)
+		  } // end for (int pw = 0; pw < pooled_width_; ++pw)
         } // end for (int ph = 0; ph < pooled_height_; ++ph)
         // compute offset
       } // end for (int n = 0; n < bottom[0]->num(); ++n)
@@ -208,11 +208,11 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
             wend = min(wend, width_);
             for (int h = hstart; h < hend; ++h) {
               for (int w = wstart; w < wend; ++w) {
-                top_data[(ph * pooled_width_ + pw)*num_] +=
-                    bottom_data[(h * width_ + w)*num_];
+                top_data[(ph * pooled_width_ + pw)*num_ + n] +=
+                    bottom_data[(h * width_ + w)*num_ + n];
               }
             }
-            top_data[(ph * pooled_width_ + pw)*num_] /= pool_size;
+            top_data[(ph * pooled_width_ + pw)*num_ + n] /= pool_size;
           }
         }
 	  }
@@ -256,7 +256,7 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       for (int n = 0; n < num_; ++n) {
         for (int ph = 0; ph < pooled_height_; ++ph) {
           for (int pw = 0; pw < pooled_width_; ++pw) {
-            const int index = (ph * pooled_width_ + pw)*num_;
+            const int index = (ph * pooled_width_ + pw) * num_ + n;
             const int bottom_index =
                 use_top_mask ? top_mask[index] : mask[index];
             bottom_diff[bottom_index] += top_diff[index];
@@ -289,8 +289,8 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
             wend = min(wend, width_);
             for (int h = hstart; h < hend; ++h) {
               for (int w = wstart; w < wend; ++w) {
-                bottom_diff[h * width_ + w] +=
-                  top_diff[ph * pooled_width_ + pw] / pool_size;
+                bottom_diff[(h * width_ + w) * num_ + n] +=
+                  top_diff[(ph * pooled_width_ + pw) * num_ + n] / pool_size;
               }
             }
           }
